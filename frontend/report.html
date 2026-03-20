@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submit Complaint - Smart Complaint System</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+    <nav class="animate-fade" style="animation-delay: 0.1s;">
+        <div class="logo">Smart<span>Complaint</span></div>
+        <div class="nav-links">
+            <a href="citizen-home.html">Home</a>
+            <a href="citizen-dashboard.html">My Complaints</a>
+            <a href="report.html" class="active">Report</a>
+            <a href="login.html">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container animate-fade" style="animation-delay: 0.2s;">
+        <div class="glass-card" style="max-width: 800px; margin: 2rem auto;">
+            <h1 class="gradient-text" style="font-weight: 900; font-size: 3rem; margin-bottom: 1rem;">Report an Emergency</h1>
+            <p style="color: var(--text-primary); margin-bottom: 2.5rem; font-weight: 700; font-size: 1.1rem;">Help us help you. Provide details and your location for immediate assistance.</p>
+
+            <form id="reportForm">
+                <div class="input-group">
+                    <label for="image">Upload Photo or Capture Image</label>
+                    <input type="file" id="image" accept="image/*" capture="environment">
+                    <div id="imagePreview" style="margin-top: 1rem; display: none;">
+                        <img id="previewImg" src="" alt="Preview" style="max-width: 100%; border-radius: 0.75rem; border: 1px solid var(--border);">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="description">What's happening?</label>
+                    <textarea id="description" rows="4" placeholder="e.g. Broken water pipe, road accident, fire near station..." required></textarea>
+                </div>
+
+                <div class="input-group">
+                    <label>Incident Location</label>
+                    <div id="map"></div>
+                    <p id="locationStatus" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Fetching GPS...</p>
+                </div>
+
+                <div style="margin-top: 1rem;">
+                    <button type="button" id="submitBtn" class="btn btn-primary" style="width: 100%;">Submit Report</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Issues Modal -->
+    <div id="issuesModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div class="glass-card" style="width: 90%; max-width: 900px; padding: 1.5rem; position: relative; background: white;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="font-weight: 900; color: var(--text-primary);">Live Incident Map (Dummy)</h2>
+                <button onclick="closeIssuesModal()" class="btn" style="padding: 0.5rem; background: #fee2e2; color: #dc2626; min-width: 40px;">&times;</button>
+            </div>
+            <div id="dummyMap" style="height: 500px; border-radius: 1rem; border: 1px solid var(--border-light);"></div>
+            <p style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.875rem; font-weight: 600;">Showing active reports in your vicinity. Stay safe!</p>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
+        <div class="glass-card animate-fade" style="width: 90%; max-width: 450px; padding: 2.5rem; text-align: center; background: white;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">✅</div>
+            <h2 style="font-weight: 900; color: var(--text-primary); margin-bottom: 0.5rem;">Report Submitted</h2>
+            <p id="successMainMessage" style="color: var(--text-secondary); margin-bottom: 2rem; font-weight: 500;">Your emergency request has been routed to the appropriate authorities.</p>
+            
+            <div style="background: var(--bg-body); padding: 1.5rem; border-radius: 1rem; text-align: left; margin-bottom: 2rem; border: 1px solid var(--border-light);">
+                <div style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-light); padding-bottom: 1rem;">
+                    <span style="color: var(--text-muted); font-size: 0.85rem; font-weight: 700; text-transform: uppercase;">Incident Details</span>
+                    <div id="successDesc" style="color: var(--text-primary); font-weight: 600; font-size: 1.1rem; margin-top: 0.25rem;"></div>
+                </div>
+                <div style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-light); padding-bottom: 1rem;">
+                    <span style="color: var(--text-muted); font-size: 0.85rem; font-weight: 700; text-transform: uppercase;" id="successStationTitle">Nearest Station</span>
+                    <div id="successStationName" style="color: var(--primary); font-weight: 800; font-size: 1rem; margin-top: 0.25rem;"></div>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted); font-size: 0.85rem; font-weight: 700; text-transform: uppercase;">Distance</span>
+                    <div id="successDistance" style="color: var(--error); font-weight: 800; font-size: 1rem; margin-top: 0.25rem;"></div>
+                </div>
+            </div>
+
+            <button onclick="document.getElementById('successModal').style.display='none'; document.getElementById('reportForm').reset();" class="btn btn-primary" style="width: 100%; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 1rem; border: none; cursor: pointer;">Okay, Got it</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/location.js"></script>
+    <script src="js/report.js"></script>
+</body>
+</html>

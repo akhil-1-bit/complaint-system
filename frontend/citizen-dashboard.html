@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Complaints - Smart Complaint System</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #routeMap { height: 400px; width: 100%; border-radius: 1rem; }
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: var(--bg-slate); margin: 5% auto; padding: 1.5rem;
+            width: 90%; max-width: 800px; border-radius: 1.5rem; border: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+    <nav class="animate-fade" style="animation-delay: 0.1s;">
+        <div class="logo">Smart<span>Complaint</span></div>
+        <div class="nav-links">
+            <a href="citizen-home.html">Home</a>
+            <a href="report.html">Report</a>
+            <a href="citizen-dashboard.html" class="active">My Complaints</a>
+            <a href="login.html">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container animate-fade" style="animation-delay: 0.2s;">
+        <h2 class="gradient-text" style="font-size: 2.25rem; margin-bottom: 2rem;">My Activity</h2>
+        <div id="complaintsList" class="dashboard-grid">
+            <p style="color: var(--text-muted);">Fetching your reports...</p>
+        </div>
+    </div>
+
+    <!-- Map Modal -->
+    <div id="mapModal" class="modal">
+        <div class="modal-content glass-card">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                <h3 id="modalTitle">Emergency Route</h3>
+                <button onclick="closeModal()" class="btn" style="background: var(--error);">Close</button>
+            </div>
+            <div id="routeMap"></div>
+            <div id="routeInfo" style="margin-top: 1rem; color: var(--text-muted);"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const API_BASE = window.location.port !== '5000' ? 'http://localhost:5000' : '';
+        let routeMapInstance = null;
+
+        async function fetchComplaints() {
+            const userId = localStorage.getItem('userId');
+            if (!userId) { window.location.href = 'login.html'; return; }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/complaints/user/${userId}`);
+                const data = await response.json();
+                
+                const container = document.getElementById('complaintsList');
+                container.innerHTML = '';
+
+                if (data.complaints.length === 0) {
+                    container.innerHTML = '<p style="color: var(--text-muted);">No complaints reported yet.</p>';
+                    return;
+                }
+
+                data.complaints.forEach(c => {
+                    let distanceInfo = '';
+                    let mapBtn = '';
+                    if (c.latitude && c.longitude && c.dept_lat && c.dept_lon) {
+                        const R = 6371;
+                        const dLat = (c.dept_lat - c.latitude) * Math.PI / 180;
+                        const dLon = (c.dept_lon - c.longitude) * Math.PI / 180;
+                        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                                  Math.cos(c.latitude * Math.PI / 180) * Math.cos(c.dept_lat * Math.PI / 180) * 
+                                  Math.sin(dLon/2) * Math.sin(dLon/2);
+                        const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                        const stationName = c.dept_address || c.department_name;
+                        distanceInfo = `<div style="font-size: 0.875rem; color: var(--primary); margin-top: 0.5rem; font-weight: 600;">
+                                            📍 Closest Station: ${stationName}<br>
+                                            📏 Distance: ${dist.toFixed(2)} km
+                                        </div>`;
+                        mapBtn = `<button onclick="showRoute(${c.latitude}, ${c.longitude}, ${c.dept_lat}, ${c.dept_lon}, '${stationName}', ${dist.toFixed(2)})" 
+                                          class="btn btn-primary" style="margin-top: 1rem; width: 100%; font-size: 0.75rem;">View Route on Map</button>`;
+                    } else {
+                        distanceInfo = `<div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                            📍 Responding Dept: ${c.department_name}<br>
+                                            ⏳ Locating response station...
+                                        </div>`;
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = 'complaint-card glass-card';
+                    card.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                            <span class="status-badge status-${c.status.toLowerCase().replace(' ', '-')}">${c.status}</span>
+                            <small style="color: var(--text-muted);">${new Date(c.created_at).toLocaleDateString()}</small>
+                        </div>
+                        <h4 style="margin-bottom: 0.5rem;">${c.category}</h4>
+                        <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1rem;">${c.description}</p>
+                        ${distanceInfo}
+                        ${mapBtn}
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                console.error(error);
+                document.getElementById('complaintsList').innerHTML = '<p style="color: var(--error);">Failed to load complaints.</p>';
+            }
+        }
+
+        function showRoute(uLat, uLon, dLat, dLon, deptName, dist) {
+            document.getElementById('mapModal').style.display = 'block';
+            document.getElementById('modalTitle').innerText = `${deptName} Proximity`;
+            document.getElementById('routeInfo').innerHTML = `Route from Incident location to <strong>${deptName}</strong> (${dist} km)`;
+            
+            setTimeout(() => {
+                if (routeMapInstance) routeMapInstance.remove();
+                
+                routeMapInstance = L.map('routeMap').setView([uLat, uLon], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(routeMapInstance);
+
+                const uMarker = L.marker([uLat, uLon]).addTo(routeMapInstance).bindPopup("Incident Location").openPopup();
+                const dMarker = L.marker([dLat, dLon]).addTo(routeMapInstance).bindPopup(deptName);
+                
+                // Draw a direct line for visualization
+                const line = L.polyline([[uLat, uLon], [dLat, dLon]], {color: 'var(--primary)', weight: 5, opacity: 0.7}).addTo(routeMapInstance);
+                
+                const group = new L.featureGroup([uMarker, dMarker, line]);
+                routeMapInstance.fitBounds(group.getBounds().pad(0.2));
+            }, 100);
+        }
+
+        function closeModal() {
+            document.getElementById('mapModal').style.display = 'none';
+        }
+
+        fetchComplaints();
+    </script>
+</body>
+</html>

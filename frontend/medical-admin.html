@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Admin - Smart Complaint System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="animate-fade" style="animation-delay: 0.1s;">
+        <div class="logo">Smart<span>Complaint</span> Admin</div>
+        <div class="nav-links"><a href="javascript:logout()">Logout</a></div>
+    </nav>
+
+    <div class="container animate-fade" style="animation-delay: 0.2s;">
+        <h2 class="gradient-text" style="font-size: 2rem; margin-bottom: 2rem;">Medical Response Center</h2>
+        <div id="adminComplaints" class="dashboard-grid"></div>
+    </div>
+
+    <script src="js/admin.js"></script>
+    <script>loadAdminComplaints(2);</script>
+</body>
+</html>
